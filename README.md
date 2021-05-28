@@ -14,23 +14,13 @@ https://github.com/DSpace/DSpace/blob/dspace-6_x/dspace/src/main/docker-compose/
 
 ## Test commands:
 
-0. To refresh / pull DSpace images from Dockerhub
+1. To refresh / pull DSpace images from Dockerhub
 
    `
    docker-compose -f docker-compose.yml -f docker-compose-cli.yml pull
    `
 
-   **Works**
-
-[comment]: <> (1. **FAILED**)
-
-[comment]: <> (    `)
-
-[comment]: <> (    docker-compose -f docker-compose.yml -f docker-compose-cli.yml build)
-
-[comment]: <> (    `)
-
-1. Run DSpace from your branch
+2. Run DSpace from your branch
 
    `docker-compose -p d6 up -d`
 
