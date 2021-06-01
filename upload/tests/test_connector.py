@@ -17,12 +17,12 @@ PASSWORD = "admin"
 class TestConnectorDSpaceRESTInit(unittest.TestCase):
     def test_init(self):
         """
-        Check if the connector can be called
+        Check if the connector can be called and doesn't crash
 
         :return:
         """
         with ConnectorDSpaceREST(URL_DSPACE) as connector:
-            connector
+            print(connector)
 
 
 class TestConnectorDSpaceREST(unittest.TestCase):
@@ -41,21 +41,19 @@ class TestConnectorDSpaceREST(unittest.TestCase):
 
     def test_get_communities(self):
         l = self.connector.get_communities()
-
-        self.assertTrue(l, "Should return something")
+        self.assertTrue(len(l), "Should return something")
 
     def test_get_collections(self):
-        self.assertEqual(0, 1)
+        l = self.connector.get_collections()
+        self.assertTrue(len(l), "Should return something")
 
     def test_get_items(self):
         l = self.connector.get_items()
-
-        self.assertTrue(l, "Should return something")
+        self.assertTrue(len(l), "Should return something")
 
     def test_get_bitstreams(self):
         l = self.connector.get_bitstreams()
-
-        self.assertEqual(0, 1)
+        self.assertTrue(len(l), "Should return something")
 
 
 class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
@@ -116,12 +114,39 @@ class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
         with self.subTest("Equal handle"):
             self.assertEqual(last_item.handle, xml.get_handle())
 
-        for key in d.keys():
+        for key in vars(item).keys():  # d.keys():
             with self.subTest(f"Equal item: {key}"):
                 value_last_item = getattr(last_item, key)
                 value_item = getattr(item, key)
 
                 self.assertEqual(value_last_item, value_item)
+
+
+class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
+    def setUp(self) -> None:
+        # Instead of using a with statement, it is closed in the teardown.
+        self.connector = ConnectorDSpaceREST(URL_DSPACE)
+        self.connector.login(EMAIL, PASSWORD)
+
+    def tearDown(self) -> None:
+        self.connector.close()
+
+    def test_delete(self):
+        # Get all items that I want to delete
+
+        items = self.connector.get_items()
+
+        def f_filter(item):
+            return (item.name is None) or ("2015 Annual Report" in item.name)
+
+        for item in filter(f_filter, items):
+            self.connector.delete_item(item.uuid)
+
+        items_after = self.connector.get_items()
+        items_after_filter = list(filter(f_filter, items_after))
+
+        self.assertTrue(items_after, "Should maintain some items")
+        self.assertFalse(items_after_filter, "Should have removed all filted ones")
 
 
 class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
@@ -133,7 +158,7 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
     def tearDown(self) -> None:
         self.connector.close()
 
-    def test_add_doc_classifier(self):
+    def test_add(self):
         bitstream = Bitstream(
             name="Document classification model for NBB vs Belgian Official Gazette. Tensorflow model."
         )

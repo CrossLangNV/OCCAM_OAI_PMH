@@ -2,14 +2,12 @@
 https://wiki.lyrasis.org/display/DSDOC6x/REST+API#RESTAPI-Model-Objectdatatypes
 """
 
-from typing import List
+from typing import List, Optional
 
-from pydantic import BaseModel
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel, validator
 
 
-@dataclass
-class Community:
+class Community(BaseModel):
     """
     { "id":456,
       "name":"Reports Community",
@@ -29,25 +27,33 @@ class Community:
     }
     """
 
-    id: int
+    uuid: str
     name: str
-    # handle,
-    # type,
-    # link,
-    # expand,
-    # logo,
-    # parentCommunity,
-    # copyrightText,
-    # introductoryText,
-    # shortDescription,
-    # sidebarText,
-    # countItems,
-    # subcommunities,
-    # collections
+    handle: str
+    type: str
+    link: str
+    expand: List[str]
+
+    parentCommunity: Optional[str]  # TODO type
+    copyrightText: str
+    introductoryText: str
+    shortDescription: str
+    sidebarText: str
+    countItems: int
+    subcommunities: List[str]
+    collections: List[str]
+
+    logo: Optional[str]  # TODO type
+
+    @validator("type")
+    def name_must_contain_space(cls, v):
+        if v != "community":
+            raise ValueError('value must be "community"')
+
+        return v
 
 
-@dataclass
-class Collection:
+class Collection(BaseModel):
     """
     { "id":730,
       "name":"Annual Reports Collection",
@@ -149,8 +155,7 @@ class Item(ItemCreate, BaseModel):
     # metadata: list=None  # This one was not defined in the model
 
 
-@dataclass
-class Bitstream:
+class Bitstream(BaseModel):
     """
     { "id":47166,
       "name":"appearance and physiology 100 percent copied from wikipedia.pdf",
@@ -171,5 +176,27 @@ class Bitstream:
     }
     """
 
-    # id: int
-    name: str
+    uuid: str
+    name: Optional[str]
+
+    handle: Optional[str]
+    type: str
+    expand: List[str]
+    bundleName: Optional[str]  # TODO type
+    description: Optional[str]
+    format: Optional[str]
+    mimeType: Optional[str]
+    sizeBytes: int
+    parentObject: Optional[str]  # TODO type
+    retrieveLink: str
+    checkSum: dict
+    sequenceId: int
+    policies: Optional[str]  # TODO type
+    link: str
+
+    @validator("type")
+    def name_must_be_bitstream(cls, v):
+        if v != "bitstream":
+            raise ValueError('value must be "bitstream"')
+
+        return v

@@ -90,10 +90,9 @@ class ConnectorDSpaceREST(requests.Session):
         return JSESSIONID
 
     def get_communities(self) -> List[SimpleNamespace]:
-        response = self.get(self.url_communities)
-        data = response.json()
-
+        data = self._get_all(self.url_communities)
         l = list(map(lambda d: Community(**d), data))
+
         return l
 
     def add_community(self):
@@ -102,10 +101,10 @@ class ConnectorDSpaceREST(requests.Session):
         return  # TODO
 
     def get_collections(self):
-        response = self.get(self.url_collections)
-        data = response.json()
 
+        data = self._get_all(self.url_collections)
         l = list(map(lambda d: Collection(**d), data))
+
         return l
 
     def add_collection(self, collection: Collection):
@@ -113,24 +112,9 @@ class ConnectorDSpaceREST(requests.Session):
 
     def get_items(
             self,
-            limit=100,
     ):
 
-        # Get all
-        data = []
-        i = 0
-        while True:
-            offset = i * limit
-            # Default value of limit is 100
-            response = self.get(self.url_items + f"?offset={offset:d}&limit={limit:d}")
-            data_i = response.json()
-
-            if len(data_i):
-                data.extend(data_i)
-            else:
-                break
-
-            i += 1
+        data = self._get_all(self.url_items)
 
         l = list(map(lambda d: Item(**d), data))
 
@@ -140,48 +124,7 @@ class ConnectorDSpaceREST(requests.Session):
 
         url = self.url_collections + f"/{collection_id}/items"
 
-        data = vars(item)
-
-        # data.pop('__initialised__')
-
-        # metadata = [{"key": "dc.title", "value": "Test 20201124 REST 2"},
-        #             {"key": "dc.contributor.author", "value": "Einstein, Albert"},
-        #             {"key": "dc.description.abstract", "value": "ABSTRACT 2"}
-        #             ]
-
-        class DCMetadata:
-            def __init__(
-                    self,
-                    title: Union[list, str],
-                    author: Union[list, str] = None,
-            ):
-
-                self.title = title
-                self.author = author
-
-            def get_metadata(self):
-
-                metadata = []
-
-                def add_title(title):
-                    metadata.append({"key": "dc.title", "value": title})
-
-                def add_author(author):
-                    metadata.append({"key": "dc.contributor.author", "value": author})
-
-                def foo(el, add_i: Callable[[str], None]):
-
-                    if el is None:
-                        return
-
-                    l = el if isinstance(el, (list, tuple)) else [el]
-                    for el_i in l:
-                        add_i(el_i)
-
-                foo(self.title, add_title)
-                foo(self.author, add_author)
-
-                return metadata
+        data = dict(vars(item))
 
         dcm = DCMetadata(title=item.name)
 
@@ -198,11 +141,16 @@ class ConnectorDSpaceREST(requests.Session):
 
         return xml
 
-    def get_bitstreams(self):
-        response = self.get(self.url_bitstreams)
-        data = response.json()
+    def delete_item(self, uuid):
 
-        l = _get_list_simple_namespace(data)
+        url = self.url_items + f"/{uuid}"
+        self.delete(url)
+
+    def get_bitstreams(self):
+
+        data = self._get_all(self.url_bitstreams)
+        l = list(map(lambda d: Bitstream(**d), data))
+
         return l
 
     def add_bitstream(self, bitstream: Bitstream):
@@ -211,3 +159,74 @@ class ConnectorDSpaceREST(requests.Session):
         response = self.post(self.url_bitstreams, data=data)
 
         return  # TODO
+
+    def _get_all(self, url, limit=100):
+        data = []
+        i = 0
+
+        while True:
+            offset = i * limit
+            # Default value of limit is 100
+            response = self.get(url + f"?offset={offset:d}&limit={limit:d}")
+
+            if not response.ok:
+                raise ConnectionError(response.content)
+
+            data_i = response.json()
+
+            if len(data_i):
+                data.extend(data_i)
+            else:
+                break
+
+            i += 1
+
+        return data
+
+
+class DCMetadata:
+    """
+    Metadata elements: https://ndlib.github.io/metadata_application_profile/elements/index.html
+    """
+
+    def __init__(
+            self,
+            # Required
+            title: Union[str],
+            # Not required
+            contributor_author: Union[list, str] = None,
+            abstract: Union[list, str] = None,
+    ):
+
+        self.title = title
+
+        self.contributor_author = contributor_author
+        self.abstract = abstract
+
+    def get_metadata(self):
+
+        metadata = []
+
+        def add_title(title):
+            metadata.append({"key": "dc.title", "value": title})
+            # metadata.append({"key": "dcterms.title", "value": title})
+
+        def add_contributor_author(contributor_author):
+            metadata.append({"key": "dc.contributor.author", "value": contributor_author})
+
+        def add_abstract(abstract):
+            metadata.append({"key": "dc.abstract", "value": abstract})
+
+        def meta_factory(el, add_i: Callable[[str], None]):
+            if el is None:
+                return
+
+            l = el if isinstance(el, (list, tuple)) else [el]
+            for el_i in l:
+                add_i(el_i)
+
+        meta_factory(self.title, add_title)
+        meta_factory(self.contributor_author, add_contributor_author)
+        meta_factory(self.abstract, add_abstract)
+
+        return metadata
