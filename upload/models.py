@@ -3,7 +3,10 @@ https://wiki.lyrasis.org/display/DSDOC6x/REST+API#RESTAPI-Model-Objectdatatypes
 """
 
 from typing import List
+
+from pydantic import BaseModel
 from pydantic.dataclasses import dataclass
+
 
 @dataclass
 class Community:
@@ -42,6 +45,7 @@ class Community:
     # subcommunities,
     # collections
 
+
 @dataclass
 class Collection:
     """
@@ -78,13 +82,26 @@ class Collection:
     numberItems: int
     link: str
 
-    logo: type=None
-    parentCommunity: type=None
-    license: type= None
+    logo: type = None
+    parentCommunity: type = None
+    license: type = None
 
 
-@dataclass
-class Item:
+# TODO change name?
+class ItemCreate(BaseModel):
+    """
+    Creating a new item, before posting to OAI-PMH
+    """
+
+    name: str
+
+    bitstreams: List[str] = None
+
+    def __init__(self, *args, **kwargs):
+        super(ItemCreate, self).__init__(*args, **kwargs)
+
+
+class Item(ItemCreate, BaseModel):
     """
     { "id":14301,
       "name":"2015 Annual Report",
@@ -101,6 +118,33 @@ class Item:
       "withdrawn":"false"
     }
     """
+
+    # id: int
+    uuid: str
+    link: str
+    handle: str
+    lastModified: str
+
+    archived: bool  # True
+    withdrawn: bool  # False  # str
+
+    # TODO fix? Expected that every item has a name.
+    name: str = None
+
+    type: str  # "item"  # Should be "item"
+
+    parentCollection: str = None
+    parentCollectionList: list = None
+    parentCommunityList: list = None
+
+    bitstreams: str = None
+
+    expand: List[str]  # = ["metadata", "parentCollection", "parentCollectionList", "parentCommunityList", "bitstreams",
+    #   "all"
+    #   ]
+
+    # TODO check if this can be added or not:
+    # metadata: list=None  # This one was not defined in the model
 
 
 @dataclass
