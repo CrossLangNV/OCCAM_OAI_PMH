@@ -155,7 +155,11 @@ class Item(ItemCreate, BaseModel):
     # metadata: list=None  # This one was not defined in the model
 
 
-class Bitstream(BaseModel):
+class BitstreamCreate(BaseModel):
+    name: Optional[str]
+
+
+class Bitstream(BitstreamCreate):
     """
     { "id":47166,
       "name":"appearance and physiology 100 percent copied from wikipedia.pdf",
@@ -177,7 +181,6 @@ class Bitstream(BaseModel):
     """
 
     uuid: str
-    name: Optional[str]
 
     handle: Optional[str]
     type: str

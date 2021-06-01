@@ -1,7 +1,7 @@
 import unittest
 
 from upload.connector import ConnectorDSpaceREST, XMLResponse
-from upload.models import Bitstream, ItemCreate
+from upload.models import ItemCreate, BitstreamCreate
 
 """
 Confluence documentation:
@@ -66,9 +66,7 @@ class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
         self.connector.close()
 
     def test_add_doc_classifier(self):
-        list(map(lambda x: x.name, self.connector.get_collections()))
         collection0 = list(filter(lambda x: "Demo 3" in x.name, self.connector.get_collections()))[0]
-
         collection_id = collection0.uuid
 
         def get_item_create():
@@ -122,6 +120,38 @@ class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
                 self.assertEqual(value_last_item, value_item)
 
 
+
+
+class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
+    def setUp(self) -> None:
+        # Instead of using a with statement, it is closed in the teardown.
+        self.connector = ConnectorDSpaceREST(URL_DSPACE)
+        self.connector.login(EMAIL, PASSWORD)
+
+    def tearDown(self) -> None:
+        self.connector.close()
+
+    def test_add(self):
+
+        collection0 = list(filter(lambda x: "Demo 3" in x.name, self.connector.get_collections()))[0]
+        collection_id = collection0.uuid
+
+        bitstream = BitstreamCreate(
+            name="Document classification model for NBB vs Belgian Official Gazette. Tensorflow model."
+        )
+
+        item0 = ItemCreate(name='temp item')
+        xml = self.connector.add_item(item0, collection_id)
+        item0_uuid = xml.get_uuid()
+        try:
+            r = self.connector.add_bitstream(bitstream, item0_uuid)
+
+            self.assertTrue(r)
+
+        finally:
+            self.connector.delete_item(item0_uuid)
+
+
 class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
     def setUp(self) -> None:
         # Instead of using a with statement, it is closed in the teardown.
@@ -147,25 +177,6 @@ class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
 
         self.assertTrue(items_after, "Should maintain some items")
         self.assertFalse(items_after_filter, "Should have removed all filted ones")
-
-
-class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
-    def setUp(self) -> None:
-        # Instead of using a with statement, it is closed in the teardown.
-        self.connector = ConnectorDSpaceREST(URL_DSPACE)
-        self.connector.login(EMAIL, PASSWORD)
-
-    def tearDown(self) -> None:
-        self.connector.close()
-
-    def test_add(self):
-        bitstream = Bitstream(
-            name="Document classification model for NBB vs Belgian Official Gazette. Tensorflow model."
-        )
-
-        r = self.connector.add_bitstream(bitstream)
-
-        self.assertTrue(r)
 
 
 class TestXMLResponse(unittest.TestCase):

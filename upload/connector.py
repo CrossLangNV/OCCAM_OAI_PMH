@@ -153,10 +153,13 @@ class ConnectorDSpaceREST(requests.Session):
 
         return l
 
-    def add_bitstream(self, bitstream: Bitstream):
-        data = vars(bitstream)
+    def add_bitstream(self, bitstream: Bitstream,
+                      item_id: str):
+        data = dict(vars(bitstream))
 
-        response = self.post(self.url_bitstreams, data=data)
+        url = self.url_items + f"/{item_id}/bitstreams"
+
+        response = self.post(url, json=data)
 
         return  # TODO
 
