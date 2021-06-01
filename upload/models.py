@@ -139,7 +139,9 @@ class Item(ItemCreate, BaseModel):
 
     bitstreams: str = None
 
-    expand: List[str]  # = ["metadata", "parentCollection", "parentCollectionList", "parentCommunityList", "bitstreams",
+    expand: List[
+        str
+    ]  # = ["metadata", "parentCollection", "parentCollectionList", "parentCommunityList", "bitstreams",
     #   "all"
     #   ]
 
