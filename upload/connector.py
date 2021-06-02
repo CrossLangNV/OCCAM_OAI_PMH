@@ -1,3 +1,4 @@
+import urllib
 import warnings
 from types import SimpleNamespace
 from typing import List, Union, Callable
@@ -132,7 +133,8 @@ class ConnectorDSpaceREST(requests.Session):
 
         data["metadata"] = metadata
 
-        response = self.post(url, json=data)
+        response = self.post(url, json=data,
+                             )
 
         if response.ok:
             xml = XMLResponse.fromstring(response.content)
@@ -153,15 +155,66 @@ class ConnectorDSpaceREST(requests.Session):
 
         return l
 
-    def add_bitstream(self, bitstream: Bitstream,
-                      item_id: str):
-        data = dict(vars(bitstream))
+    def add_bitstream(self,
+                      file,
+                      basename: str,
+                      item_id: str,
+                      description: str = None,
+                      groupId: int = None,
+                      year: int = None,
+                      month: int = None,
+                      day: int = None,
+                      ):
+        """
 
-        url = self.url_items + f"/{item_id}/bitstreams"
+        Example code:
+        `
+        description = 'this a description'
+        with open(filename, 'rb') as file:
+            r = self.connector.add_bitstream(file,
+                                             filename,
+                                             'aaa-bbb-ccc',
+                                             description=description)
+        `
 
-        response = self.post(url, json=data)
+        Format and mimeType are found automatically
 
-        return  # TODO
+        :param file:
+        :param basename:
+        :param item_id:
+        :param description: (Optional)
+        :param groupId: (Optional) Id of group to set item resource policy to.'
+        :param year: (Optional) Year to set embargo date to
+        :param month: (Optional) Month to set embargo date to
+        :param day: (Optional) Day of month to set embargo date to
+        :return:
+        """
+
+        url = self.url_items + f"/{item_id}/bitstreams?name={urllib.parse.quote(basename)}"
+
+        if description:
+            url += f"&description={urllib.parse.quote(description)}"
+
+        if groupId:
+            url += f"&groupID={groupId:d}"
+
+        # Embargo date
+        if year:
+            url += f"&year={year:d}"
+            if month:
+                url += f"&month={month:d}"
+                if day:
+                    url += f"&day={day:d}"
+
+        files = [('file', file),
+                 ]
+
+        response = self.post(url,
+                             files=files)
+
+        assert response.ok, 'Failed to' + f'\n{response.content}\n{response.status_code}'
+
+        return response.content
 
     def _get_all(self, url, limit=100):
         data = []

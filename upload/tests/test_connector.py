@@ -140,16 +140,71 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
             name="Document classification model for NBB vs Belgian Official Gazette. Tensorflow model."
         )
 
-        item0 = ItemCreate(name='temp item')
-        xml = self.connector.add_item(item0, collection_id)
-        item0_uuid = xml.get_uuid()
-        try:
-            r = self.connector.add_bitstream(bitstream, item0_uuid)
+        bitstreams_before = self.connector.get_bitstreams()
 
-            self.assertTrue(r)
+        def get_temp_item() -> str:
+            items = self.connector.get_items()
 
-        finally:
-            self.connector.delete_item(item0_uuid)
+            name = 'temp item'
+
+            f = filter(lambda item: item.name == name, items)
+
+            for item in f:
+                return item.uuid
+
+            # Couldn't find item:
+            item0 = ItemCreate(name=name)
+            xml = self.connector.add_item(item0, collection_id)
+            item0_uuid = xml.get_uuid()
+
+            return item0_uuid
+
+        item0_uuid = get_temp_item()
+
+        import os
+        # filename = os.path.join(os.path.dirname(__file__), 'example_files/model_nbb_bris.h5')
+        filename = os.path.join(os.path.dirname(__file__), 'example_files/image-055.png')
+        basename = os.path.split(filename)[-1]
+
+        description = 'this a description'
+
+        with open(filename, 'rb') as file:
+            r = self.connector.add_bitstream(file,
+                                             basename,
+                                             item0_uuid,
+                                             description=description)
+
+        self.assertTrue(r)
+
+        bitstreams_after = self.connector.get_bitstreams()
+
+        # TODO check if new bitstream is according to settings and if file (content) is the same
+
+        """
+        Example code to delete the item: 
+        >> self.connector.delete_item(item0_uuid)
+        """
+
+        f_uuid = lambda x: x.uuid
+        bitstreams_uuid_before = list(map(f_uuid, bitstreams_before))
+        bitstreams_delta = list(filter(lambda x: f_uuid(x) not in bitstreams_uuid_before, bitstreams_after))
+
+        with self.subTest('number of new bitstreams'):
+            self.assertEqual(len(bitstreams_delta), 1, 'Should only add one')
+
+        new_bitstream = bitstreams_delta[0]
+
+        with self.subTest('Equal name'):
+            self.assertEqual(new_bitstream.name, basename)
+
+        with self.subTest('Equal description'):
+            self.assertEqual(new_bitstream.description, description)
+
+        # TODO check if filecontent is the same
+        with self.subTest('Equal file'):
+            pass
+
+        return
 
 
 class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
