@@ -1,17 +1,25 @@
+import filecmp
+import os
+import tempfile
 import unittest
+import urllib
+
+from dotenv import load_dotenv
 
 from upload.connector import ConnectorDSpaceREST, XMLResponse
-from upload.models import ItemCreate, BitstreamCreate
+from upload.models import ItemAdd, BitstreamAdd
 
-"""
+"""7
 Confluence documentation:
 https://wiki.lyrasis.org/display/DSDOC6x/REST+API
 """
 
-URL_DSPACE = "http://localhost:8080"
-# Fill in your details here to be posted to the login form.
-EMAIL = "test@test.edu"
-PASSWORD = "admin"
+ROOT = os.path.join(os.path.dirname(__file__), '../..')
+load_dotenv(os.path.join(ROOT, 'secrets/oaipmh-docker.env'))
+
+URL_DSPACE = os.environ['URL_DSPACE']
+EMAIL = os.environ['EMAIL_DSPACE']
+PASSWORD = os.environ['PASSWORD_DSPACE']
 
 
 class TestConnectorDSpaceRESTInit(unittest.TestCase):
@@ -72,10 +80,8 @@ class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
         def get_item_create():
             d = {
                 "name": "2015 Annual Report",
-                # # TODO can be added, but don't know how.
-                # "bitstreams": [1],
             }
-            item = ItemCreate(**d)
+            item = ItemAdd(**d)
             return item
 
         item = get_item_create()
@@ -120,8 +126,6 @@ class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
                 self.assertEqual(value_last_item, value_item)
 
 
-
-
 class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
     def setUp(self) -> None:
         # Instead of using a with statement, it is closed in the teardown.
@@ -132,34 +136,18 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
         self.connector.close()
 
     def test_add(self):
+        """
+        Example code to delete the item:
+        >> self.connector.delete_item(item0_uuid)
+        """
 
-        collection0 = list(filter(lambda x: "Demo 3" in x.name, self.connector.get_collections()))[0]
-        collection_id = collection0.uuid
-
-        bitstream = BitstreamCreate(
+        bitstream = BitstreamAdd(
             name="Document classification model for NBB vs Belgian Official Gazette. Tensorflow model."
         )
 
         bitstreams_before = self.connector.get_bitstreams()
 
-        def get_temp_item() -> str:
-            items = self.connector.get_items()
-
-            name = 'temp item'
-
-            f = filter(lambda item: item.name == name, items)
-
-            for item in f:
-                return item.uuid
-
-            # Couldn't find item:
-            item0 = ItemCreate(name=name)
-            xml = self.connector.add_item(item0, collection_id)
-            item0_uuid = xml.get_uuid()
-
-            return item0_uuid
-
-        item0_uuid = get_temp_item()
+        item0_uuid = _get_temp_item(self.connector)
 
         import os
         # filename = os.path.join(os.path.dirname(__file__), 'example_files/model_nbb_bris.h5')
@@ -178,12 +166,6 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
 
         bitstreams_after = self.connector.get_bitstreams()
 
-        # TODO check if new bitstream is according to settings and if file (content) is the same
-
-        """
-        Example code to delete the item: 
-        >> self.connector.delete_item(item0_uuid)
-        """
 
         f_uuid = lambda x: x.uuid
         bitstreams_uuid_before = list(map(f_uuid, bitstreams_before))
@@ -200,23 +182,33 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
         with self.subTest('Equal description'):
             self.assertEqual(new_bitstream.description, description)
 
-        # TODO check if filecontent is the same
-        with self.subTest('Equal file'):
-            pass
+        url_file = URL_DSPACE + new_bitstream.retrieveLink
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            filename_tmp = os.path.join(tmp_dir, new_bitstream.name)
+            urllib.request.urlretrieve(url_file, filename_tmp)
+
+            with self.subTest('Same file content'):
+                check = filecmp.cmp(filename, filename_tmp)  # r.content)
+
+                self.assertTrue(check, 'Content should be the same')
 
         return
 
 
-class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
+class TestConnectorDSpaceRESTdelete(unittest.TestCase):
     def setUp(self) -> None:
         # Instead of using a with statement, it is closed in the teardown.
         self.connector = ConnectorDSpaceREST(URL_DSPACE)
         self.connector.login(EMAIL, PASSWORD)
 
+        self.connector_readonly = ConnectorDSpaceREST(URL_DSPACE)
+
     def tearDown(self) -> None:
         self.connector.close()
+        self.connector_readonly.close()
 
-    def test_delete(self):
+    def test_delete_item(self):
         # Get all items that I want to delete
 
         items = self.connector.get_items()
@@ -232,6 +224,52 @@ class TestConnectorDSpaceRESTdeleteItem(unittest.TestCase):
 
         self.assertTrue(items_after, "Should maintain some items")
         self.assertFalse(items_after_filter, "Should have removed all filted ones")
+
+    def test_delete_temp_item_bitstreams(self):
+        """
+        ! Indexing has to be cleared separately:
+        > /dspace/bin/dspace cleanup
+        in the docker container. (https://wiki.lyrasis.org/display/DSDOC6x/Command+Line+Operations)
+
+        :return:
+        """
+        # Get all the bitstreams that I want to delete
+
+        ### Does not seem we need to delete based on item?
+        item_tmp_uuid = _get_temp_item(self.connector)
+
+        bitstreams_item = self.connector.get_bitstreams(item_id=item_tmp_uuid)
+
+        bitstreams = self.connector.get_bitstreams()
+
+        l_inter = []
+        for bitstream_i in bitstreams_item:
+            if bitstream_i.uuid in map(lambda x: x.uuid, bitstreams):
+                l_inter.append(bitstream_i)
+
+        with self.subTest('Subset'):
+            self.assertEqual(len(l_inter), len(bitstreams_item), 'Should be subset of all bitstreams')
+
+        def f_filter(bitstream):
+
+            # bitstream.parentObject is always None...
+
+            return (bitstream.name is None)  # or ("2015 Annual Report" in item.name)
+
+        for bitstream in filter(f_filter, bitstreams):
+            self.connector.delete_bitstream(bitstream.uuid)
+
+        # Delete bitstreams from temp item
+        for bitstream in bitstreams_item:
+            self.connector.delete_bitstream(bitstream.uuid)
+
+        bitstreams_after = self.connector.get_bitstreams()
+        bitstreams_after_filter = list(filter(f_filter, bitstreams_after))
+
+        self.assertTrue(bitstreams_after, "Should maintain some bitstreams")
+        self.assertFalse(bitstreams_after_filter, "Should have removed all filtered ones")
+
+        return
 
 
 class TestXMLResponse(unittest.TestCase):
@@ -252,3 +290,31 @@ class TestXMLResponse(unittest.TestCase):
             _ingore_single_double_quotes(_concatenate_lines(s_xml)),
             _ingore_single_double_quotes(response_content.decode("UTF-8")),
         )
+
+
+def _get_temp_collection(connector):
+    collection0 = list(filter(lambda x: "Demo 3" in x.name, connector.get_collections()))[0]
+    collection_id = collection0.uuid
+
+    return collection_id
+
+
+def _get_temp_item(connector, collection_id=None) -> str:
+    if collection_id is None:
+        collection_id = _get_temp_collection(connector)
+
+    items = connector.get_items()
+
+    name = 'temp item'
+
+    f = filter(lambda item: item.name == name, items)
+
+    for item in f:
+        return item.uuid
+
+    # Couldn't find item:
+    item0 = ItemAdd(name=name)
+    xml = connector.add_item(item0, collection_id)
+    item0_uuid = xml.get_uuid()
+
+    return item0_uuid

@@ -6,7 +6,7 @@ from typing import List, Union, Callable
 import requests
 from lxml import etree
 
-from .models import Community, Collection, Item, ItemCreate, Bitstream
+from .models import Community, Collection, Item, ItemAdd, Bitstream
 
 RESPONSE_TEST = "REST api is running."
 
@@ -81,6 +81,9 @@ class ConnectorDSpaceREST(requests.Session):
     def login(self, email: str, password: str) -> str:
         """Needed when editing the elements (post, put, delete)
 
+        You can also do a get request with:
+        {url_rest}/login?email={email}&password={password}
+
         :param email:
         :param password:
         :return: a JSESSIONID as string
@@ -121,7 +124,7 @@ class ConnectorDSpaceREST(requests.Session):
 
         return l
 
-    def add_item(self, item: ItemCreate, collection_id: int) -> XMLResponse:
+    def add_item(self, item: ItemAdd, collection_id: int) -> XMLResponse:
 
         url = self.url_collections + f"/{collection_id}/items"
 
@@ -148,9 +151,19 @@ class ConnectorDSpaceREST(requests.Session):
         url = self.url_items + f"/{uuid}"
         self.delete(url)
 
-    def get_bitstreams(self):
+    def get_bitstreams(self,
+                       item_id: str = None):
+        """
 
-        data = self._get_all(self.url_bitstreams)
+        :param item_id: (Optional)
+        :return:
+        """
+
+        if item_id is None:
+            data = self._get_all(self.url_bitstreams)
+        else:
+            data = self._get_all(self.url_items + f'/{item_id}/bitstreams')
+
         l = list(map(lambda d: Bitstream(**d), data))
 
         return l
@@ -206,15 +219,22 @@ class ConnectorDSpaceREST(requests.Session):
                 if day:
                     url += f"&day={day:d}"
 
-        files = [('file', file),
-                 ]
-
+        # https://stackoverflow.com/questions/16145116/python-requests-post-data-from-a-file/16145232#16145232
+        # https://stackoverflow.com/questions/43580/how-to-find-the-mime-type-of-a-file-in-python
+        # headers = {"content-type" : "multipart/form-data"}
         response = self.post(url,
-                             files=files)
+                             data=file,
+                             # headers=headers
+                             )
 
-        assert response.ok, 'Failed to' + f'\n{response.content}\n{response.status_code}'
+        assert response.ok, 'Failed to uplaod file.' + f'\n{response.content}\n{response.status_code}'
 
         return response.content
+
+    def delete_bitstream(self, uuid):
+
+        url = self.url_bitstreams + f"/{uuid}"
+        self.delete(url)
 
     def _get_all(self, url, limit=100):
         data = []
@@ -232,7 +252,8 @@ class ConnectorDSpaceREST(requests.Session):
 
             if len(data_i):
                 data.extend(data_i)
-            else:
+
+            if len(data_i) < limit:
                 break
 
             i += 1

@@ -57,3 +57,14 @@ https://github.com/DSpace/DSpace/blob/dspace-6_x/dspace/src/main/docker-compose/
   `
   docker-compose -p d6 -f docker-compose-cli.yml -f dspace/src/main/docker-compose/cli.ingest.yml run dspace-cli
   `
+
+## TODO Problems with deleting bitstreams
+
+    /dspace/bin/dspace cleanup
+
+# Other OAI-SERVERS
+
+03/06/2021: Europeana has exposed their data through OAI
+
+https://pro.europeana.eu/page/harvesting-and-downloads#harvesting
+

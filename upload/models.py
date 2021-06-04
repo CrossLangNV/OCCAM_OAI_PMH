@@ -93,21 +93,18 @@ class Collection(BaseModel):
     license: type = None
 
 
-# TODO change name?
-class ItemCreate(BaseModel):
+class ItemAdd(BaseModel):
     """
     Creating a new item, before posting to OAI-PMH
     """
 
     name: str
 
-    bitstreams: List[str] = None
-
     def __init__(self, *args, **kwargs):
-        super(ItemCreate, self).__init__(*args, **kwargs)
+        super(ItemAdd, self).__init__(*args, **kwargs)
 
 
-class Item(ItemCreate, BaseModel):
+class Item(ItemAdd, BaseModel):
     """
     { "id":14301,
       "name":"2015 Annual Report",
@@ -134,8 +131,7 @@ class Item(ItemCreate, BaseModel):
     archived: bool  # True
     withdrawn: bool  # False  # str
 
-    # TODO fix? Expected that every item has a name.
-    name: str = None
+    name: Optional[str]
 
     type: str  # "item"  # Should be "item"
 
@@ -143,7 +139,7 @@ class Item(ItemCreate, BaseModel):
     parentCollectionList: list = None
     parentCommunityList: list = None
 
-    bitstreams: str = None
+    bitstreams: List[str] = None
 
     expand: List[
         str
@@ -155,11 +151,11 @@ class Item(ItemCreate, BaseModel):
     # metadata: list=None  # This one was not defined in the model
 
 
-class BitstreamCreate(BaseModel):
+class BitstreamAdd(BaseModel):
     name: Optional[str]
 
 
-class Bitstream(BitstreamCreate):
+class Bitstream(BitstreamAdd):
     """
     { "id":47166,
       "name":"appearance and physiology 100 percent copied from wikipedia.pdf",
@@ -190,7 +186,7 @@ class Bitstream(BitstreamCreate):
     format: Optional[str]
     mimeType: Optional[str]
     sizeBytes: int
-    parentObject: Optional[str]  # TODO type
+    parentObject: Optional[str]  # TODO type, also always seems to be None
     retrieveLink: str
     checkSum: dict
     sequenceId: int
