@@ -6,7 +6,7 @@ from typing import List, Union, Callable
 import requests
 from lxml import etree
 
-from .models import Community, Collection, Item, ItemAdd, Bitstream
+from .models import Community, CommunityAdd, Collection, CollectionAdd, Item, ItemAdd, Bitstream
 
 RESPONSE_TEST = "REST api is running."
 
@@ -99,10 +99,26 @@ class ConnectorDSpaceREST(requests.Session):
 
         return l
 
-    def add_community(self):
-        response = self.post(self.url_communities)
+    def add_community(self, community: CommunityAdd):
 
-        return  # TODO
+        data = dict(vars(community))
+
+        response = self.post(self.url_communities,
+                             json=data,
+                             )
+
+        if response.ok:
+            xml = XMLResponse.fromstring(response.content)
+            return xml
+        else:
+            raise ConnectionError(response.content)
+
+    def delete_community(self, community_uuid):
+
+        url = self.url_communities + f"/{community_uuid}"
+        response = self.delete(url)
+
+        return response.ok
 
     def get_collections(self):
 
@@ -111,8 +127,26 @@ class ConnectorDSpaceREST(requests.Session):
 
         return l
 
-    def add_collection(self, collection: Collection):
-        return
+    def add_collection(self, collection: CollectionAdd, community_id):
+        url = self.url_communities + f"/{community_id}/collections"
+
+        data = dict(vars(collection))
+
+        response = self.post(url, json=data,
+                             )
+
+        if response.ok:
+            xml = XMLResponse.fromstring(response.content)
+            return xml
+        else:
+            raise ConnectionError(response.content)
+
+    def delete_collection(self, collection_uuid):
+
+        url = self.url_collections + f"/{collection_uuid}"
+        response = self.delete(url)
+
+        return response.ok
 
     def get_items(
             self,

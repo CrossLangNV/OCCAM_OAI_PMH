@@ -7,7 +7,7 @@ import urllib
 from dotenv import load_dotenv
 
 from upload.connector import ConnectorDSpaceREST, XMLResponse
-from upload.models import ItemAdd, BitstreamAdd
+from upload.models import ItemAdd, BitstreamAdd, CommunityAdd, CollectionAdd
 
 """7
 Confluence documentation:
@@ -62,6 +62,103 @@ class TestConnectorDSpaceREST(unittest.TestCase):
     def test_get_bitstreams(self):
         l = self.connector.get_bitstreams()
         self.assertTrue(len(l), "Should return something")
+
+
+class TestConnectorDSpaceRESTAddCommunity(unittest.TestCase):
+    name = 'Demo model'
+
+    def setUp(self) -> None:
+        # Instead of using a with statement, it is closed in the teardown.
+        self.connector = ConnectorDSpaceREST(URL_DSPACE)
+        self.connector.login(EMAIL, PASSWORD)
+
+    def tearDown(self) -> None:
+        self.connector.close()
+
+    def test_add_community(self):
+        with self.subTest('Clear previous entries'):
+            self._delete_community()
+
+        community = CommunityAdd(name=self.name)
+        self.connector.add_community(community)
+
+        l = self.connector.get_communities()
+        l_names = list(map(lambda community: community.name, l))
+
+        self.assertIn(self.name, l_names)
+
+    def _delete_community(self):
+        l = self.connector.get_communities()
+
+        for community in filter(lambda community: community.name == self.name, l):
+            r = self.connector.delete_community(community.uuid)
+
+            self.assertTrue(r)
+
+        l = self.connector.get_communities()
+        l_names = list(map(lambda community: community.name, l))
+
+        self.assertFalse(self.name in l_names)
+
+
+class TestConnectorDSpaceRESTAddCollection(unittest.TestCase):
+    name = 'Demo document classifier'
+
+    def setUp(self) -> None:
+        # Instead of using a with statement, it is closed in the teardown.
+        self.connector = ConnectorDSpaceREST(URL_DSPACE)
+        self.connector.login(EMAIL, PASSWORD)
+
+        self._add_collection()
+
+    def tearDown(self) -> None:
+        self._delete_collection()
+
+        self.connector.close()
+
+    def _add_collection(self):
+
+        def get_community():
+            l_community = self.connector.get_communities()
+
+            for community in filter(lambda community: community.name == TestConnectorDSpaceRESTAddCommunity.name,
+                                    l_community):
+                return community
+
+        community = get_community()
+
+        collection = CollectionAdd(name=self.name)
+        self.connector.add_collection(collection, community.uuid)
+
+    def _delete_collection(self):
+
+        l = self.connector.get_collections()
+
+        for collection in filter(lambda collection: collection.name == self.name, l):
+            r = self.connector.delete_collection(collection.uuid)
+
+            self.assertTrue(r)
+
+    def test_add_collection(self):
+
+        with self.subTest('Clear previous entries'):
+            self._delete_collection()
+
+        self._add_collection()
+        l = self.connector.get_collections()
+
+        l_names = list(map(lambda collection: collection.name, l))
+
+        self.assertIn(self.name, l_names)
+
+    def test_delete_collection(self):
+
+        self._delete_collection()
+
+        l = self.connector.get_collections()
+        l_names = list(map(lambda collection: collection.name, l))
+
+        self.assertFalse(self.name in l_names)
 
 
 class TestConnectorDSpaceRESTAddItem(unittest.TestCase):
@@ -165,7 +262,6 @@ class TestConnectorDSpaceRESTAddBitstream(unittest.TestCase):
         self.assertTrue(r)
 
         bitstreams_after = self.connector.get_bitstreams()
-
 
         f_uuid = lambda x: x.uuid
         bitstreams_uuid_before = list(map(f_uuid, bitstreams_before))

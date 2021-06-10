@@ -7,7 +7,11 @@ from typing import List, Optional
 from pydantic import BaseModel, validator
 
 
-class Community(BaseModel):
+class CommunityAdd(BaseModel):
+    name: str
+
+
+class Community(CommunityAdd):
     """
     { "id":456,
       "name":"Reports Community",
@@ -28,7 +32,6 @@ class Community(BaseModel):
     """
 
     uuid: str
-    name: str
     handle: str
     type: str
     link: str
@@ -53,7 +56,11 @@ class Community(BaseModel):
         return v
 
 
-class Collection(BaseModel):
+class CollectionAdd(BaseModel):
+    name: str
+
+
+class Collection(CollectionAdd):
     """
     { "id":730,
       "name":"Annual Reports Collection",
