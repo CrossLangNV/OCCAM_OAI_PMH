@@ -21,7 +21,7 @@ services:
     networks:
       dspacenet:
     ports:
-      - published: 8080
+      - published: 9180
         target: 8080
     stdin_open: true
     tty: true
