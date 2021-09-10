@@ -68,3 +68,6 @@ https://github.com/DSpace/DSpace/blob/dspace-6_x/dspace/src/main/docker-compose/
 
 https://pro.europeana.eu/page/harvesting-and-downloads#harvesting
 
+## Connector
+
+The connector can be found in ./upload.
